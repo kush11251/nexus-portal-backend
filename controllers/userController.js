@@ -7,11 +7,18 @@ const signUp = async (req, res) => {
     const { org_id, email, password, name, phone, dob } = req.body;
 
     const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: "Email already exists" });
+    if (exists) {
+      return res.status(400).json({
+        message: "Email already exists",
+        statusCode: 400
+      });
+    }
 
     const user = await User.create({ org_id, email, password, name, phone, dob });
-    res.status(201).json({
+
+    res.status(200).json({
       message: "User created",
+      statusCode: 200,
       user: {
         user_id: user.user_id,
         email: user.email,
@@ -21,7 +28,10 @@ const signUp = async (req, res) => {
       token: createToken(user)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      message: err.message,
+      statusCode: 500
+    });
   }
 };
 
@@ -29,18 +39,39 @@ const signUp = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    const user = await User.findOne({ email }); // include password for comparison
+    if (!user) return res.status(401).json({ 
+      message: "User not found",
+      statusCode: 401
+    });
+
+    if (!user.active) {
+      return res.status(403).json({
+        message: "User is deactivated. Please contact admin.",
+        statusCode: 403
+      });
+    }
 
     const match = await user.matchPassword(password);
-    if (!match) return res.status(401).json({ message: "Invalid credentials" });
+    if (!match) return res.status(401).json({ 
+      message: "Invalid credentials",
+      statusCode: 401
+    });
 
-    res.json({
+    // Exclude password before sending response
+    const { password: pwd, ...userData } = user.toObject();
+
+    res.status(200).json({
       message: "Login successful",
-      token: createToken(user)
+      statusCode: 200,
+      token: createToken(user),
+      user: userData
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ 
+      message: err.message,
+      statusCode: 500
+    });
   }
 };
 
